@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ payload.meta.memoTitle or 'Finance Memorandum' }}</title>
+  <link rel="stylesheet" href="print.css" />
+</head>
+<body>
+
+{# -----------------------------
+   Helpers
+------------------------------ #}
+{% macro sectionTitle(title, kicker) -%}
+  <div class="section-title">
+    {% if kicker %}<div class="kicker">{{ kicker }}</div>{% endif %}
+    <h1>{{ title }}</h1>
+    <div class="rule"></div>
+  </div>
+{%- endmacro %}
+
+{% macro kvRow(label, value) -%}
+  {% if value %}
+  <tr>
+    <th>{{ label }}</th>
+    <td>{{ value }}</td>
+  </tr>
+  {% endif %}
+{%- endmacro %}
+
+{# -----------------------------
+   Build TOC dynamically
+------------------------------ #}
+{% set toc = [] %}
+{% set toc = toc.concat([{ id: 'cover', title: 'Cover' }]) %}
+{% if show.partiesToLoan %}{% set toc = toc.concat([{ id: 'parties', title: 'Parties to the Loan' }]) %}{% endif %}
+{% if show.legal %}{% set toc = toc.concat([{ id: 'legal', title: payload.legal.confidentialityHeading or 'CONFIDENTIALITY & DISCLAIMER' }]) %}{% endif %}
+{% set toc = toc.concat([{ id: 'contents', title: 'Contents' }]) %}
+{% if payload.execSummary and payload.execSummary|length %}{% set toc = toc.concat([{ id: 'exec', title: 'Executive Summary' }]) %}{% endif %}
+{% if hasAnyValue(payload.proposal) %}{% set toc = toc.concat([{ id: 'proposal', title: 'The Proposal' }]) %}{% endif %}
+{% if hasAnyValue(payload.salesMarketing) or (payload.presales and payload.presales|length) %}{% set toc = toc.concat([{ id: 'sales', title: 'Sales & Marketing' }]) %}{% endif %}
+{% if show.lots %}{% set toc = toc.concat([{ id: 'pricelist', title: 'Pricelist and lot sizes' }]) %}{% endif %}
+{% if show.property %}{% set toc = toc.concat([{ id: 'property', title: 'Property Information' }]) %}{% endif %}
+{% if assets.propertyImages and assets.propertyImages|length %}{% set toc = toc.concat([{ id: 'images', title: 'Property Images' }]) %}{% endif %}
+{% if show.feasibility %}{% set toc = toc.concat([{ id: 'feasibility', title: 'Feasibility' }]) %}{% endif %}
+{% if hasAnyValue(payload.loan) %}{% set toc = toc.concat([{ id: 'loan', title: 'The Loan' }]) %}{% endif %}
+{% if payload.funding and (payload.funding.rows|length) %}{% set toc = toc.concat([{ id: 'funding', title: 'Estimated Funding Position' }]) %}{% endif %}
+{% if payload.security and (payload.security.rows|length or payload.security.notes) %}{% set toc = toc.concat([{ id: 'security', title: 'Security Offered' }]) %}{% endif %}
+{% if payload.borrowers and payload.borrowers|length %}{% set toc = toc.concat([{ id: 'borrowers', title: 'The Borrowers' }]) %}{% endif %}
+{% if show.guarantors %}{% set toc = toc.concat([{ id: 'guarantors', title: 'Individuals & Guarantors' }]) %}{% endif %}
+{% if payload.financials and hasAnyValue(payload.financials) %}{% set toc = toc.concat([{ id: 'financials', title: 'Financial Information' }]) %}{% endif %}
+{% if payload.professionalContacts and hasAnyValue(payload.professionalContacts) %}{% set toc = toc.concat([{ id: 'contacts', title: 'Professional Contacts' }]) %}{% endif %}
+{% if show.recommendation %}{% set toc = toc.concat([{ id: 'recommendation', title: payload.recommendation.heading or 'RECOMMENDATION' }]) %}{% endif %}
+{% set toc = toc.concat([{ id: 'backcover', title: 'Contacts' }]) %}
+
+{# -----------------------------
+   COVER
+------------------------------ #}
+<section id="cover" class="section cover">
+  <header class="cover-header">
+    {% if assets.logo %}
+      <img class="logo" src="{{ assets.logo }}" alt="Logo" />
+    {% endif %}
+    <div class="cover-ref">
+      {% if payload.meta.referenceNumber %}
+        <div class="kicker">GCC Reference No</div>
+        <div class="refval">{{ payload.meta.referenceNumber }}</div>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="cover-hero">
+    {% if assets.coverImage %}
+      <img class="cover-image" src="{{ assets.coverImage }}" alt="Cover image" />
+    {% else %}
+      <div class="cover-image placeholder"></div>
+    {% endif %}
+
+    <div class="cover-overlay">
+      <div class="pill">{{ payload.cover.headline or 'Construction Finance' }}</div>
+      {% if payload.cover.subheadline %}<div class="pill wide">{{ payload.cover.subheadline }}</div>{% endif %}
+      {% if payload.meta.preparedFor %}<div class="cover-line"><span>Prepared for</span><strong>{{ payload.meta.preparedFor }}</strong></div>{% endif %}
+      {% if payload.loan.loanAmount %}<div class="cover-line"><span>Loan amount</span><strong>{{ payload.loan.loanAmount }}</strong></div>{% endif %}
+      {% if payload.meta.date %}<div class="cover-line"><span>Date</span><strong>{{ payload.meta.date }}</strong></div>{% endif %}
+    </div>
+  </div>
+
+  {% if payload.loan.purpose %}
+    <div class="cover-note">{{ payload.loan.purpose | nl2br }}</div>
+  {% endif %}
+</section>
+
+{# -----------------------------
+   PARTIES TO THE LOAN
+------------------------------ #}
+{% if show.partiesToLoan %}
+<section id="parties" class="section">
+  {{ sectionTitle('Parties to the Loan') }}
+
+  <table class="grid">
+    <thead>
+      <tr><th>Name</th><th>Role</th><th>Type</th></tr>
+    </thead>
+    <tbody>
+      {% for p in payload.partiesToLoan %}
+        {% if hasAnyValue(p) %}
+        <tr>
+          <td>{{ p.name }}</td>
+          <td>{{ p.role }}</td>
+          <td>{{ p.entityType }}</td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{# -----------------------------
+   LEGAL (fully editable)
+------------------------------ #}
+{% if show.legal %}
+<section id="legal" class="section">
+  {{ sectionTitle(payload.legal.confidentialityHeading or 'CONFIDENTIALITY & DISCLAIMER') }}
+
+  {% if payload.legal.contactName or payload.legal.contactEmail or payload.legal.contactPhone %}
+    <div class="contact-card">
+      <div class="contact-title">Contact</div>
+      {% if payload.legal.contactName %}<div><strong>{{ payload.legal.contactName }}</strong></div>{% endif %}
+      {% if payload.legal.contactEmail %}<div>{{ payload.legal.contactEmail }}</div>{% endif %}
+      {% if payload.legal.contactPhone %}<div>{{ payload.legal.contactPhone }}</div>{% endif %}
+    </div>
+  {% endif %}
+
+  <div class="two-col">
+    <div class="prose">{{ (payload.legal.confidentialityBody or '') | nl2br }}</div>
+    <div class="prose">{{ (payload.legal.disclaimerBody or '') | nl2br }}</div>
+  </div>
+</section>
+{% endif %}
+
+{# -----------------------------
+   CONTENTS
+------------------------------ #}
+<section id="contents" class="section">
+  {{ sectionTitle('Contents') }}
+  <ol class="toc">
+    {% for item in toc %}
+      <li><span class="toc-title">{{ item.title }}</span><span class="toc-dots"></span></li>
+    {% endfor %}
+  </ol>
+</section>
+
+{# -----------------------------
+   EXECUTIVE SUMMARY
+------------------------------ #}
+{% if payload.execSummary and payload.execSummary|length %}
+<section id="exec" class="section">
+  {{ sectionTitle('Executive Summary') }}
+  <table class="kv">
+    <tbody>
+      {% for row in payload.execSummary %}
+        {% if row.key and row.value %}
+          <tr><th>{{ row.key }}</th><td>{{ row.value }}</td></tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{# -----------------------------
+   THE PROPOSAL
+------------------------------ #}
+{% if hasAnyValue(payload.proposal) %}
+<section id="proposal" class="section">
+  {{ sectionTitle('THE PROPOSAL') }}
+
+  {% if payload.proposal.synopsis %}
+    <h2>Synopsis</h2>
+    <div class="prose">{{ payload.proposal.synopsis | nl2br }}</div>
+  {% endif %}
+
+  {% if payload.proposal.existingFacilities %}
+    <h2>Existing Facilities</h2>
+    <div class="prose">{{ payload.proposal.existingFacilities | nl2br }}</div>
+  {% endif %}
+
+  {% if payload.proposal.consultants %}
+    <h2>Consultants</h2>
+    <div class="prose">{{ payload.proposal.consultants | nl2br }}</div>
+  {% endif %}
+</section>
+{% endif %}
+
+{# -----------------------------
+   SALES & MARKETING
+------------------------------ #}
+{% if hasAnyValue(payload.salesMarketing) or (payload.presales and payload.presales|length) %}
+<section id="sales" class="section">
+  {{ sectionTitle('SALES & MARKETING') }}
+
+  {% if payload.salesMarketing.salesStrategy %}
+    <h2>Sales</h2>
+    <div class="prose">{{ payload.salesMarketing.salesStrategy | nl2br }}</div>
+  {% endif %}
+
+  {% if payload.salesMarketing.marketingStrategy %}
+    <h2>Marketing</h2>
+    <div class="prose">{{ payload.salesMarketing.marketingStrategy | nl2br }}</div>
+  {% endif %}
+
+  {% if payload.salesMarketing.presalesSummary %}
+    <h2>Presales</h2>
+    <div class="prose">{{ payload.salesMarketing.presalesSummary | nl2br }}</div>
+  {% endif %}
+
+  {% if payload.presales and payload.presales|length %}
+    <table class="grid">
+      <thead>
+        <tr><th>Buyer</th><th>Lot</th><th class="num">Price</th><th class="num">Deposit</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for r in payload.presales %}
+          {% if hasAnyValue(r) %}
+          <tr>
+            <td>{{ r.buyer }}</td>
+            <td>{{ r.lot }}</td>
+            <td class="num">{{ r.price }}</td>
+            <td class="num">{{ r.deposit }}</td>
+            <td>{{ r.status }}</td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</section>
+{% endif %}
+
+{# -----------------------------
+   PRICELIST / LOTS
+------------------------------ #}
+{% if show.lots %}
+<section id="pricelist" class="section">
+  {{ sectionTitle('PRICELIST AND LOT SIZES') }}
+
+  <table class="grid">
+    <thead>
+      <tr><th>Stage</th><th>Lot</th><th>Size</th><th class="num">Price</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      {% for l in payload.lots %}
+        {% if hasAnyValue(l) %}
+        <tr>
+          <td>{{ l.stage }}</td>
+          <td>{{ l.lot }}</td>
+          <td>{{ l.size }}</td>
+          <td class="num">{{ l.price }}</td>
+          <td>{{ l.status }}</td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{# -----------------------------
+   PROPERTY INFORMATION
+------------------------------ #}
+{% if show.property %}
+<section id="property" class="section">
+  {{ sectionTitle('PROPERTY INFORMATION') }}
+
+  <table class="kv">
+    <tbody>
+      {{ kvRow('Security location', payload.property.address) }}
+      {{ kvRow('Security description', payload.property.securityDescription) }}
+      {{ kvRow('Zoning', payload.property.zoning) }}
+      {{ kvRow('Site area', payload.property.area) }}
+      {{ kvRow('Titles / Lots', payload.property.titles) }}
+      {{ kvRow('Planning / DA', payload.property.planning) }}
+      {{ kvRow('Services', payload.property.services) }}
+      {{ kvRow('Notes', payload.property.notes) }}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{# -----------------------------
+   PROPERTY IMAGES
+------------------------------ #}
+{% if assets.propertyImages and assets.propertyImages|length %}
+<section id="images" class="section">
+  {{ sectionTitle('PROPERTY IMAGES') }}
+
+  <div class="image-grid">
+    {% for img in assets.propertyImages %}
+      <figure class="imgbox">
+        <img src="{{ img }}" alt="Property image {{ loop.index }}" />
+        {% set cap = (payload.propertyImageCaptions and payload.propertyImageCaptions[loop.index0]) or '' %}
+        {% if cap %}<figcaption>{{ cap }}</figcaption>{% endif %}
+      </figure>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{# -----------------------------
+   FEASIBILITY
+------------------------------ #}
+{% if show.feasibility %}
+<section id="feasibility" class="section">
+  {{ sectionTitle('FEASIBILITY') }}
+
+  {% if payload.feasibilityNotes %}
+    <div class="prose">{{ payload.feasibilityNotes | nl2br }}</div>
+  {% endif %}
+
+  {% set groups = {} %}
+  {% for r in payload.feasibilityRows %}
+    {% set g = r.group or 'Lines' %}
+    {% if not groups[g] %}{% set _ = groups.update({ (g): [] }) %}{% endif %}
+    {% set _ = groups[g].append(r) %}
+  {% endfor %}
+
+  {% for g, rows in groups %}
+    <h2>{{ g }}</h2>
+    <table class="grid">
+      <thead><tr><th>Line item</th><th class="num">Amount</th><th>Notes</th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+          {% if hasAnyValue(r) %}
+          <tr>
+            <td>{{ r.label }}</td>
+            <td class="num">{{ r.amount }}</td>
+            <td>{{ r.notes }}</td>
+          </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endfor %}
+</section>
+{% endif %}
+
+{# -----------------------------
+   THE LOAN
+------------------------------ #}
+{% if hasAnyValue(payload.loan) %}
+<section id="loan" class="section">
+  {{ sectionTitle('THE LOAN') }}
+
+  <table class="kv">
+    <tbody>
+      {{ kvRow('Borrower', (payload.execSummary|selectattr('key','equalto','BORROWER')|first).value ) }}
+      {{ kvRow('Loan amount', payload.loan.loanAmount) }}
+      {{ kvRow('Loan purpose', payload.loan.purpose) }}
+      {{ kvRow('Loan type', payload.loan.loanType) }}
+      {{ kvRow('LVR', payload.loan.lvr) }}
+      {{ kvRow('Loan term', payload.loan.term) }}
+      {{ kvRow('Security type', payload.loan.securityType) }}
+      {{ kvRow('Security location', payload.loan.securityLocation) }}
+      {{ kvRow('Credit reports', payload.loan.creditReports) }}
+      {{ kvRow('Anticipated settlement', payload.loan.anticipatedSettlement) }}
+      {{ kvRow('Exit strategy', payload.loan.exitStrategy) }}
+      {{ kvRow('Pricing', payload.loan.pricing) }}
+      {{ kvRow('Fees', payload.loan.fees) }}
+      {{ kvRow('Additional terms', payload.loan.additionalTerms) }}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{# -----------------------------
+   FUNDING POSITION
+------------------------------ #}
+{% if payload.funding and payload.funding.rows and payload.funding.rows|length %}
+<section id="funding" class="section">
+  {{ sectionTitle('ESTIMATED FUNDING POSITION') }}
+
+  <table class="grid">
+    <thead><tr><th>Item</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+      {% for r in payload.funding.rows %}
+        {% if hasAnyValue(r) %}
+        <tr><td>{{ r.label }}</td><td class="num">{{ r.amount }}</td></tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if payload.funding.notes %}<div class="note">{{ payload.funding.notes | nl2br }}</div>{% endif %}
+</section>
+{% endif %}
+
+{# -----------------------------
+   SECURITY OFFERED
+------------------------------ #}
+{% if payload.security and (payload.security.rows|length or payload.security.notes) %}
+<section id="security" class="section">
+  {{ sectionTitle('SECURITY OFFERED') }}
+
+  {% if payload.security.rows and payload.security.rows|length %}
+  <table class="grid">
+    <thead><tr><th>Security</th><th>Details</th></tr></thead>
+    <tbody>
+      {% for r in payload.security.rows %}
+        {% if hasAnyValue(r) %}
+        <tr><td>{{ r.name }}</td><td>{{ r.details }}</td></tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if payload.security.notes %}<div class="note">{{ payload.security.notes | nl2br }}</div>{% endif %}
+</section>
+{% endif %}
+
+{# -----------------------------
+   BORROWERS
+------------------------------ #}
+{% if payload.borrowers and payload.borrowers|length %}
+<section id="borrowers" class="section">
+  {{ sectionTitle('THE BORROWERS') }}
+
+  {% for b in payload.borrowers %}
+    {% if hasAnyValue(b) %}
+    <div class="card">
+      <div class="card-title">{{ b.name }}</div>
+      <div class="card-grid">
+        {% if b.entityType %}<div><span class="lbl">Type</span><span class="val">{{ b.entityType }}</span></div>{% endif %}
+        {% if b.abn %}<div><span class="lbl">ABN/ACN</span><span class="val">{{ b.abn }}</span></div>{% endif %}
+        {% if b.role %}<div><span class="lbl">Role</span><span class="val">{{ b.role }}</span></div>{% endif %}
+        {% if b.address %}<div><span class="lbl">Address</span><span class="val">{{ b.address }}</span></div>{% endif %}
+      </div>
+      {% if b.notes %}<div class="note">{{ b.notes | nl2br }}</div>{% endif %}
+    </div>
+    {% endif %}
+  {% endfor %}
+</section>
+{% endif %}
+
+{# -----------------------------
+   INDIVIDUALS & GUARANTORS
+------------------------------ #}
+{% if show.guarantors %}
+<section id="guarantors" class="section">
+  {{ sectionTitle('INDIVIDUALS & GUARANTORS') }}
+
+  {% for g in payload.guarantors %}
+    {% if hasAnyValue(g) %}
+    <div class="card">
+      <div class="card-title">{{ g.fullName }}</div>
+      <div class="card-grid">
+        {% if g.relationship %}<div><span class="lbl">Relationship</span><span class="val">{{ g.relationship }}</span></div>{% endif %}
+        {% if g.netWorth %}<div><span class="lbl">Net worth</span><span class="val">{{ g.netWorth }}</span></div>{% endif %}
+      </div>
+      {% if g.bio %}<div class="note">{{ g.bio | nl2br }}</div>{% endif %}
+    </div>
+    {% endif %}
+  {% endfor %}
+</section>
+{% endif %}
+
+{# -----------------------------
+   FINANCIAL INFORMATION
+------------------------------ #}
+{% if payload.financials and hasAnyValue(payload.financials) %}
+<section id="financials" class="section">
+  {{ sectionTitle('FINANCIAL INFORMATION') }}
+
+  {% if payload.financials.companyAssets and payload.financials.companyAssets|length %}
+    <h2>Company-owned Assets</h2>
+    <table class="grid">
+      <thead><tr><th>Asset</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+        {% for r in payload.financials.companyAssets %}
+          {% if hasAnyValue(r) %}<tr><td>{{ r.label }}</td><td class="num">{{ r.amount }}</td></tr>{% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  {% if payload.financials.companyLiabilities and payload.financials.companyLiabilities|length %}
+    <h2>Company-owned Liabilities</h2>
+    <table class="grid">
+      <thead><tr><th>Liability</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+        {% for r in payload.financials.companyLiabilities %}
+          {% if hasAnyValue(r) %}<tr><td>{{ r.label }}</td><td class="num">{{ r.amount }}</td></tr>{% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  {% if payload.financials.individuals and payload.financials.individuals|length %}
+    {% for person in payload.financials.individuals %}
+      {% if hasAnyValue(person) %}
+      <h2>{{ person.name }}</h2>
+      <table class="grid">
+        <thead><tr><th>Item</th><th class="num">Amount</th><th>Type</th></tr></thead>
+        <tbody>
+          {% for r in person.rows %}
+            {% if hasAnyValue(r) %}<tr><td>{{ r.label }}</td><td class="num">{{ r.amount }}</td><td>{{ r.type }}</td></tr>{% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if person.notes %}<div class="note">{{ person.notes | nl2br }}</div>{% endif %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+</section>
+{% endif %}
+
+{# -----------------------------
+   PROFESSIONAL CONTACTS
+------------------------------ #}
+{% if payload.professionalContacts and hasAnyValue(payload.professionalContacts) %}
+<section id="contacts" class="section">
+  {{ sectionTitle('PROFESSIONAL CONTACTS') }}
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Solicitor</div>
+      <div class="prose">
+        {% if payload.professionalContacts.solicitor.name %}<div><strong>{{ payload.professionalContacts.solicitor.name }}</strong></div>{% endif %}
+        {% if payload.professionalContacts.solicitor.firm %}<div>{{ payload.professionalContacts.solicitor.firm }}</div>{% endif %}
+        {% if payload.professionalContacts.solicitor.email %}<div>{{ payload.professionalContacts.solicitor.email }}</div>{% endif %}
+        {% if payload.professionalContacts.solicitor.phone %}<div>{{ payload.professionalContacts.solicitor.phone }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Accountant</div>
+      <div class="prose">
+        {% if payload.professionalContacts.accountant.name %}<div><strong>{{ payload.professionalContacts.accountant.name }}</strong></div>{% endif %}
+        {% if payload.professionalContacts.accountant.firm %}<div>{{ payload.professionalContacts.accountant.firm }}</div>{% endif %}
+        {% if payload.professionalContacts.accountant.email %}<div>{{ payload.professionalContacts.accountant.email }}</div>{% endif %}
+        {% if payload.professionalContacts.accountant.phone %}<div>{{ payload.professionalContacts.accountant.phone }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# -----------------------------
+   RECOMMENDATION (fully editable)
+------------------------------ #}
+{% if show.recommendation %}
+<section id="recommendation" class="section">
+  {{ sectionTitle(payload.recommendation.heading or 'RECOMMENDATION') }}
+
+  {% if payload.recommendation.body %}
+    <div class="prose">{{ payload.recommendation.body | nl2br }}</div>
+  {% endif %}
+
+  {% if payload.recommendation.annexuresHeading or payload.recommendation.annexuresList or payload.recommendation.annexuresIntro %}
+    <h2>{{ payload.recommendation.annexuresHeading or 'ANNEXURES' }}</h2>
+    {% if payload.recommendation.annexuresIntro %}<div class="prose">{{ payload.recommendation.annexuresIntro | nl2br }}</div>{% endif %}
+    {% if payload.recommendation.annexuresList %}
+      <div class="prose">{{ payload.recommendation.annexuresList | nl2br }}</div>
+    {% endif %}
+  {% endif %}
+</section>
+{% endif %}
+
+{# -----------------------------
+   BACK COVER
+------------------------------ #}
+<section id="backcover" class="section backcover">
+  {{ sectionTitle('CONTACTS') }}
+  <div class="backgrid">
+    <div>
+      <div class="kicker">Prepared by</div>
+      <div class="bc-name">{{ payload.meta.preparedBy or 'Global Capital Commercial' }}</div>
+      {% if payload.legal.contactEmail %}<div class="bc-line">{{ payload.legal.contactEmail }}</div>{% endif %}
+      {% if payload.legal.contactPhone %}<div class="bc-line">{{ payload.legal.contactPhone }}</div>{% endif %}
+      {% if payload.meta.date %}<div class="bc-sub">{{ payload.meta.date }}</div>{% endif %}
+    </div>
+
+    <div class="bc-brand">
+      {% if assets.logo %}
+        <img class="logo" src="{{ assets.logo }}" alt="Logo" />
+      {% endif %}
+      <div class="bc-sub">{{ payload.meta.memoTitle or 'Finance Memorandum' }}</div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
