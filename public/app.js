@@ -304,7 +304,8 @@ function getScalarPayload() {
   payload.financials.companyLiabilities = state.companyLiabilities.filter(rowHasAnyValue);
 
   // Individuals A&L textarea parser
-  const raw = ($('#individualFinancialsRaw').value || '').trim();
+  const rawEl = $('#individualFinancialsRaw');
+const raw = (rawEl ? rawEl.value : '').trim();
   if (raw) {
     const blocks = raw.split(/\n\s*\n+/);
     for (const block of blocks) {
