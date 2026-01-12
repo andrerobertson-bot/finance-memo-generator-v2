@@ -9,7 +9,6 @@
   "scripts": {
     "dev": "node server/index.js",
     "start": "node server/index.js",
-    "postinstall": "node server/pdf/install-playwright.js"
   },
   "dependencies": {
     "compression": "^1.7.4",
