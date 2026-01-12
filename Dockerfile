@@ -3,7 +3,7 @@ FROM node:20-bookworm-slim
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Install Playwright browser (Chromium) + OS deps
 RUN npx playwright install --with-deps chromium
