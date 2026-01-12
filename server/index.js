@@ -286,7 +286,7 @@ const PayloadSchema = z
       })
       .default({}),
   })
-  .strict();
+  .passthrough();
 
 app.post(
   '/api/generate',
