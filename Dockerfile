@@ -1,7 +1,13 @@
-# ---------- Base ----------
+# ================================
+# Finance Memorandum Generator
+# Node + Playwright + LaTeX (Tectonic) + System Fonts
+# ================================
+
 FROM node:20-bookworm-slim
 
-# ---------- System deps (Playwright + Tectonic + fonts) ----------
+# ------------------------
+# System dependencies
+# ------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -30,7 +36,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
   && rm -rf /var/lib/apt/lists/*
 
-# ---------- Install fonts (robust, no apt font packages) ----------
+# ------------------------
+# Install Fonts (Raleway + Merriweather)
+# Direct from Google Fonts (reliable on Render)
+# ------------------------
 RUN mkdir -p /usr/local/share/fonts/custom \
   && curl -L -o /usr/local/share/fonts/custom/Raleway.ttf \
        https://github.com/google/fonts/raw/main/ofl/raleway/Raleway%5Bwght%5D.ttf \
@@ -40,34 +49,35 @@ RUN mkdir -p /usr/local/share/fonts/custom \
        https://github.com/google/fonts/raw/main/ofl/merriweather/Merriweather-Bold.ttf \
   && fc-cache -f -v
 
-# ---------- Install Tectonic (self-contained) ----------
-# Uses the official installer to place tectonic into /usr/local/bin
+# ------------------------
+# Install Tectonic (XeLaTeX engine)
+# ------------------------
 RUN curl -fsSL https://drop-sh.fullyjustified.net | sh \
   && mv /root/.cargo/bin/tectonic /usr/local/bin/tectonic
 
-# ---------- App setup ----------
+# ------------------------
+# App Setup
+# ------------------------
 WORKDIR /app
 
-# Install Node dependencies first for better Docker layer caching
 COPY package*.json ./
 RUN npm ci
 
-# Playwright browsers (needed for Chromium in Render)
-# If you already install browsers via npm postinstall in your repo, you can remove this block.
+# Install Playwright Chromium
 RUN npx playwright install --with-deps chromium
 
-# Copy the rest of the repo
+# Copy remaining project files
 COPY . .
 
-# Build step (only if you have one; harmless if not present)
-# If your project doesn't have a build script, you can delete this line.
+# Optional build step (safe if none exists)
 RUN npm run build || true
 
-# ---------- Runtime ----------
+# ------------------------
+# Runtime
+# ------------------------
 ENV NODE_ENV=production
 ENV PORT=3000
 
 EXPOSE 3000
 
-# If your start script differs, change this to match your repo (e.g. "node server.js")
 CMD ["npm", "start"]
