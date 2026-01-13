@@ -1,13 +1,7 @@
-# ================================
-# Finance Memorandum Generator
-# Node + Playwright + LaTeX (Tectonic) + System Fonts
-# Render/Docker compatible
-# ================================
-
 FROM node:20-bookworm-slim
 
 # ------------------------
-# System dependencies (Chromium libs + utilities)
+# System dependencies
 # ------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -38,8 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # ------------------------
-# Install Fonts (Raleway + Merriweather)
-# Reliable on Render (no apt font packages)
+# Fonts
 # ------------------------
 RUN mkdir -p /usr/local/share/fonts/custom \
   && curl -L -o /usr/local/share/fonts/custom/Raleway.ttf \
@@ -52,7 +45,6 @@ RUN mkdir -p /usr/local/share/fonts/custom \
 
 # ------------------------
 # Install Tectonic
-# IMPORTANT: drop installer unpacks into CURRENT DIRECTORY (./tectonic)
 # ------------------------
 RUN curl -fsSL https://drop-sh.fullyjustified.net | sh \
   && chmod +x ./tectonic \
@@ -65,16 +57,11 @@ RUN curl -fsSL https://drop-sh.fullyjustified.net | sh \
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install --production
 
-# Install Playwright Chromium + deps
 RUN npx playwright install --with-deps chromium
 
-# Copy the rest of the repo
 COPY . .
-
-# Optional build step (safe if build script doesn't exist)
-RUN npm run build || true
 
 # ------------------------
 # Runtime
